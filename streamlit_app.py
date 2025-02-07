@@ -1,7 +1,6 @@
 import streamlit as st
 import requests
-from gtts import gTTS
-import pygame
+
 
 # Streamlit UI
 st.title("📖 Ask the Bible AI")
