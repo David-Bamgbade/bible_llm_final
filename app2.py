@@ -8,9 +8,7 @@ from transformers import pipeline
 
 app = Flask(__name__)
 
-pre_trained_model = pipeline("summarization", model="t5-small")
-
-# filePath = "bible.txt"
+pre_trained_model = pipeline("question-answering", model="distilbert-base-cased-distilled-squad")
 
 filePath = "genesis.txt"
 
@@ -39,23 +37,16 @@ def answer_question(question):
     return result['answer']
 
 
-def summarize_text(text):
-    result = pre_trained_model(text, max_length=50, min_length=20, do_sample=False)
-    return result[0]['summary_text']
-
-
 @app.route('/ask', methods=['POST'])
 def query():
     data = request.json
     question = data.get("question")
-    response = summarize_text(question)
 
     if not question:
         return jsonify({"Error": "Question Is Required"}), 400
+    response = answer_question(question)
     return jsonify({"answer": response})
 
 
 if __name__ == '__main__':
     app.run(debug=True)
-
-    # response = answer_question(question)
