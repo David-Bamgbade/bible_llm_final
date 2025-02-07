@@ -1,12 +1,10 @@
 import streamlit as st
 import requests
-import pygame
+
 
 # Streamlit UI
 st.title("📖 Ask the Bible AI")
 st.write("Ask a question, and the AI will answer based on the Bible.")
-
-
 
 
 # User input
