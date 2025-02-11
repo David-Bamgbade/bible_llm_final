@@ -1,9 +1,11 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_file
 from transformers import pipeline
 from sentence_transformers import SentenceTransformer
 import faiss
 import numpy as np
 import json
+from io import BytesIO
+from gtts import gTTS
 
 app = Flask(__name__)
 
@@ -16,18 +18,6 @@ filePath = "genesis.json"
 # Initialize your SentenceTransformer model.
 embedder = SentenceTransformer("all-MiniLM-L6-v2")
 
-
-# Function to load Bible data from a JSON file.
-# The JSON file should contain a list of records, for example:
-# [
-#   {
-#     "book": "Genesis",
-#     "chapter": 1,
-#     "verse": 6,
-#     "text": "And God said, Let there be a firmament in the midst of the waters, and let it divide the waters from the waters."
-#   },
-#   ...
-# ]
 def load_bible_data(file_path):
     with open(file_path, "r", encoding="utf-8") as file:
         data = json.load(file)
@@ -70,20 +60,6 @@ def answer_question(question):
         # Format the reply with citation details.
         reply = f"{record['book']} {record['chapter']}:{record['verse']} - {record['text']}"
 
-        # --- OPTIONAL: Further refine the answer using the generation pipeline ---
-        # If you want to provide a more expansive response, you might do something like:
-        #
-        # prompt = (
-        #     f"You are a pastor. Based on the Bible verse:\n"
-        #     f"{reply}\n\n"
-        #     f"Answer the following question:\n{question}\n"
-        #     f"Provide context and explanation in your response."
-        # )
-        # result = pre_trained_model(prompt, max_length=4000)
-        # generated_answer = result[0].get('generated_text', reply)
-        # return generated_answer
-        #
-        # Otherwise, simply return the formatted verse:
         return reply
     else:
         return "No relevant verse found."
@@ -93,10 +69,22 @@ def answer_question(question):
 def query():
     data = request.json
     question = data.get("question")
+    response_type = data.get("response_type", "text")
     if not question:
         return jsonify({"error": "Question is required"}), 400
     response = answer_question(question)
-    return jsonify({"answer": response})
+
+    if response_type == "voice":
+        # Convert the answer text to speech using gTTS
+        tts = gTTS(response, lang="en")
+        audio_file = BytesIO()
+        tts.write_to_fp(audio_file)
+        audio_file.seek(0)
+        # Return the audio file with the appropriate MIME type.
+        return send_file(audio_file, mimetype="audio/mpeg", as_attachment=False, download_name="answer.mp3")
+    else:
+        return jsonify({"answer": response})
+    # return jsonify({"answer": response})
 
 
 if __name__ == '__main__':
