@@ -1,5 +1,3 @@
-import eventlet
-eventlet.monkey_patch()
 from flask import Flask, request, jsonify, send_file
 from sentence_transformers import SentenceTransformer
 import faiss
@@ -16,7 +14,6 @@ from flask_socketio import SocketIO, emit, disconnect
 import os, datetime
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash, check_password_hash
-import logging
 
 app = Flask(__name__)
 
@@ -31,13 +28,7 @@ app.config["MONGO_URI"] = "mongodb://localhost:27017/BibleLlmDb"
 # Initialize extensions
 mongo = PyMongo(app)
 jwt = JWTManager(app)
-# socketio = SocketIO(app, cors_allowed_origins=["http://localhost:8501"], async_mode="eventlet")
-
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode="eventlet")
-
-# --- WebSocket Event Handlers ---
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+socketio = SocketIO(app, cors_allowed_origins=["http://localhost:8501"], async_mode="eventlet")
 
 # --- Bible Data and FAISS Setup ---
 # Path to your JSON dataset
@@ -46,12 +37,10 @@ filePath = "genesis.json"
 # Initialize your SentenceTransformer model.
 embedder = SentenceTransformer("all-MiniLM-L6-v2")
 
-
 def load_bible_data(file_path):
     with open(file_path, "r", encoding="utf-8") as file:
         data = json.load(file)
     return data
-
 
 # Load the Bible data
 bible_data = load_bible_data(filePath)
@@ -63,7 +52,6 @@ embeddings = embedder.encode(texts, convert_to_numpy=True).astype("float32")
 # Create a FAISS index for fast similarity search.
 index = faiss.IndexFlatL2(embeddings.shape[1])
 index.add(embeddings)
-
 
 def retrieve_bible_verse(question):
     """
@@ -78,7 +66,6 @@ def retrieve_bible_verse(question):
     else:
         return None
 
-
 def answer_question(question):
     """
     Retrieves the Bible verse record that best matches the query and formats the reply.
@@ -89,7 +76,6 @@ def answer_question(question):
         return reply
     else:
         return "No relevant verse found."
-
 
 @app.route('/ask', methods=['POST'])
 def query():
@@ -111,7 +97,6 @@ def query():
     else:
         return jsonify({"answer": response})
 
-
 # --- User Registration & Login Endpoints ---
 @app.route("/register", methods=["POST"])
 def register():
@@ -131,7 +116,6 @@ def register():
         "password": hashed_password
     })
     return jsonify({"message": "User registered successfully"}), 201
-
 
 @app.route("/login", methods=["POST"])
 def login():
@@ -155,75 +139,55 @@ def login():
 
     return jsonify({"error": "Invalid credentials"}), 401
 
-
 @app.route("/protected", methods=["GET"])
 @jwt_required()
 def protected():
     current_user = get_jwt_identity()
     return jsonify({"message": f"Hello user {current_user}, you have access!"}), 200
 
-
-@socketio.on("connect", namespace="/")
+# --- WebSocket Event Handlers ---
+@socketio.on("connect")
 def handle_connect():
-    # Get the token and a fallback username from query parameters.
     token = request.args.get("token")
-    query_username = request.args.get("username", "Guest")
-
     if not token:
-        print("No token provided; connecting as Guest.")
-        request.environ["user_id"] = None
-        request.environ["username"] = query_username
-        emit("message", {"msg": f"Connected as Guest ({query_username})."}, namespace="/")
+        print("No token provided, disconnecting.")
+        disconnect()
         return
 
     try:
-        # Place the token in the request header for verification.
         request.headers.environ["HTTP_AUTHORIZATION"] = f"Bearer {token}"
         verify_jwt_in_request(optional=True)
-        # get_jwt_identity() may return a string or a dictionary.
-        user_info = get_jwt_identity()
-        if isinstance(user_info, str):
-            # If it's a string, treat it as the user_id.
-            username = query_username  # fallback to the username from query
-            user_id = user_info
-        elif isinstance(user_info, dict):
-            # If it's a dict, try to get username and user_id.
-            username = user_info.get("username", query_username)
-            user_id = user_info.get("user_id", user_info.get("sub"))
-        else:
-            raise Exception("Invalid token payload")
-
+        user_id = get_jwt_identity()
         if not user_id:
-            raise Exception("Invalid token: no user id")
-
-        # Save the user information for later use.
+            raise Exception("Invalid token")
         request.environ["user_id"] = user_id
-        request.environ["username"] = username
-        print(f"User {username} (ID: {user_id}) connected via WebSocket.")
-        emit("message", {"msg": f"Connected as {username}."}, namespace="/")
+        print(f"User {user_id} connected via WebSocket.")
     except Exception as e:
         print(f"WebSocket connection rejected: {e}")
-        disconnect(namespace="/")
-        return None
+        disconnect()
+        return
 
+    emit("message", {"msg": "Connected to secure WebSocket server."})
 
-@socketio.on("chat", namespace="/")
+@socketio.on("chat")
 def handle_chat(data):
     message = data.get("message")
     user_id = request.environ.get("user_id", "Guest")
     timestamp = datetime.datetime.utcnow().isoformat()
-    # Optionally store the message in MongoDB.
-    emit("chat", {"user_id": user_id, "message": message, "timestamp": timestamp}, broadcast=True, namespace="/")
 
+    # Optionally, store chat messages in MongoDB here.
+    # mongo.db.chat_messages.insert_one({
+    #     "user_id": user_id,
+    #     "message": message,
+    #     "timestamp": datetime.datetime.utcnow()
+    # })
 
-@socketio.on("disconnect", namespace="/")
+    emit("chat", {"user_id": user_id, "message": message, "timestamp": timestamp}, broadcast=True)
+
+@socketio.on("disconnect")
 def handle_disconnect():
     print("Client disconnected.")
 
-
-# if __name__ == '__main__':
-#     socketio.run(app, debug=False)
-
 if __name__ == '__main__':
-    socketio.run(app, host="127.0.0.1", port=5000, debug=False)
+    socketio.run(app, debug=False)
 
