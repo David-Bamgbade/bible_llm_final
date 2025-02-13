@@ -525,13 +525,16 @@ if "sent_notifications" not in st.session_state:
 # --- SocketIO Client Setup ---
 sio = socketio.Client()
 
+
 @sio.event
 def connect():
     st.write("Connected to chat server.")
 
+
 @sio.event
 def disconnect():
     st.write("Disconnected from chat server.")
+
 
 @sio.on("chat")
 def on_chat(data):
@@ -544,6 +547,7 @@ def on_chat(data):
         st.query_params.from_dict({"page": st.session_state.page})
         st.stop()
 
+
 @sio.on("sent")
 def on_sent(data):
     st.session_state.sent_notifications.append(data["msg"])
@@ -552,6 +556,7 @@ def on_sent(data):
     except AttributeError:
         st.query_params.from_dict({"page": st.session_state.page})
         st.stop()
+
 
 def start_socketio(token):
     url = f"{BASE_URL}?token={token}"
@@ -563,10 +568,12 @@ def start_socketio(token):
     except Exception as e:
         st.write("SocketIO connection error:", e)
 
+
 if st.session_state.get("jwt_token") and not st.session_state.get("socketio_connected"):
     token = st.session_state.jwt_token
     threading.Thread(target=start_socketio, args=(token,), daemon=True).start()
     st.session_state.socketio_connected = True
+
 
 # --- Define Page Functions ---
 
@@ -589,6 +596,7 @@ def login_page():
             st.session_state.role = "user"  # Mark user as logged in.
             st.success("Login successful!")
             st.session_state.page = "bible_ai"  # Route to main app page.
+            st.write(f"Logged in as: {data['username']}")
             try:
                 st.experimental_rerun()
             except AttributeError:
@@ -600,6 +608,7 @@ def login_page():
             except Exception:
                 error_msg = "Login failed."
             st.error(error_msg)
+
 
 def register_page():
     st.header("Register")
@@ -625,9 +634,10 @@ def register_page():
                 error_msg = "Registration failed."
             st.error(error_msg)
 
+
 def bible_ai_page():
     st.header("Bible AI Q/A")
-    st.write("Ask a question and get an answer based on the Bible.")
+    st.write("Logged in as:", st.session_state.user_info["username"])
     response_type = st.radio("Response type:", ("Text", "Voice"), key="response_type")
     question = st.text_input("Enter your question:", key="bible_ai_question")
     if st.button("Ask"):
@@ -675,6 +685,7 @@ def chat_page():
     for notif in st.session_state.sent_notifications:
         st.write(notif)
 
+
 # --- Define Navigation using st.navigation and st.Page ---
 login_pg = st.Page(login_page, title="Login", icon="🔑", default=(st.session_state.page in ["auth", "login"]))
 register_pg = st.Page(register_page, title="Register", icon="📝", default=(st.session_state.page == "register"))
@@ -688,9 +699,3 @@ else:
 
 nav = st.navigation(pages)
 nav.run()
-
-
-
-
-
-
