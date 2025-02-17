@@ -526,6 +526,7 @@ if "sent_notifications" not in st.session_state:
 sio = socketio.Client()
 
 
+
 @sio.event
 def connect():
     st.write("Connected to chat server.")
@@ -593,8 +594,8 @@ def login_page():
                 "user_id": data["user_id"],
                 "username": data["username"],
             }
+            st.success("Login successful! Now Tap Any Button")
             st.session_state.role = "user"  # Mark user as logged in.
-            st.success("Login successful!")
             st.session_state.page = "bible_ai"  # Route to main app page.
             st.write(f"Logged in as: {data['username']}")
             try:
@@ -656,7 +657,6 @@ def bible_ai_page():
         else:
             st.warning("Please enter a question.")
 
-
 def chat_page():
     st.header("Real-Time Bible Chat")
     if st.session_state.user_info:
@@ -693,9 +693,13 @@ bible_ai_pg = st.Page(bible_ai_page, title="Bible AI", icon="📖", default=(st.
 chat_pg = st.Page(chat_page, title="Chat", icon="💬", default=(st.session_state.page == "chat"))
 
 if st.session_state.role is None:
-    pages = {"Authentication": [login_pg, register_pg]}
-else:
-    pages = {"Main": [bible_ai_pg, chat_pg]}
+    nav = st.navigation([register_pg, login_pg])
+    nav.run()
 
-nav = st.navigation(pages)
-nav.run()
+if st.session_state.role is "user":
+    navigate_to = st.navigation([bible_ai_pg, chat_pg])
+    navigate_to.run()
+
+if st.session_state.role is "menu":
+    go_to = st.navigation(st.Page[register_pg, login_pg])
+    go_to.run()

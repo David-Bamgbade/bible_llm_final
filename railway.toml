@@ -1,0 +1,4 @@
+[service]
+name = "biblical_llm_backend"
+root = "Biblical_llm"
+start = "gunicorn -w 4 -b 0.0.0.0:$PORT app2:app"
