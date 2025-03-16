@@ -54,11 +54,6 @@ index = faiss.IndexFlatL2(embeddings.shape[1])
 index.add(embeddings)
 
 def retrieve_bible_verse(question):
-    """
-    Given a question, encode it and search for the most similar Bible verse in the dataset.
-    Returns the matching record (a dict with keys "book", "chapter", "verse", "text")
-    or None if no match is found.
-    """
     query_embedding = embedder.encode([question], convert_to_numpy=True).astype("float32")
     _, indices = index.search(query_embedding, 1)
     if indices is not None and len(indices[0]) > 0 and indices[0][0] != -1:
