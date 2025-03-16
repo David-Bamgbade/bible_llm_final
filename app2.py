@@ -62,9 +62,6 @@ def retrieve_bible_verse(question):
         return None
 
 def answer_question(question):
-    """
-    Retrieves the Bible verse record that best matches the query and formats the reply.
-    """
     record = retrieve_bible_verse(question)
     if record:
         reply = f"{record['book']} {record['chapter']}:{record['verse']} - {record['text']}"
